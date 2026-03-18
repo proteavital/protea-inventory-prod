@@ -1,3 +1,7 @@
+import { SidebarProvider, SidebarTrigger } from "@workspace/ui/components/sidebar";
+import { TooltipProvider } from "@workspace/ui/components/tooltip";
+import { AppSidebar } from "@/components/app-sidebar";
+
 import { Geist, Geist_Mono, Figtree } from "next/font/google"
 
 import "@workspace/ui/globals.css"
@@ -23,7 +27,13 @@ export default function RootLayout({
       className={cn("antialiased", fontMono.variable, "font-sans", figtree.variable)}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <TooltipProvider>
+              <main>
+                {children}
+              </main>
+          </TooltipProvider> 
+        </ThemeProvider>
       </body>
     </html>
   )

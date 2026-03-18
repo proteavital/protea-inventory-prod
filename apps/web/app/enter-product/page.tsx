@@ -45,8 +45,8 @@ export default function EnterProduct() {
     const product = products.find((p) => p.id === id) || null;
     setSelectedProduct(product);
     setMessage('');
-    if (product?.fields['Unit Cost AVG']) {
-      setUnitCost(String(product.fields['Unit Cost AVG']));
+    if (product?.fields['Unit Cost']) {
+      setUnitCost(String(product.fields['Unit Cost']));
     } else {
       setUnitCost('');
     }

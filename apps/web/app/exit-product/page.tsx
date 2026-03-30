@@ -9,6 +9,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
 
 import { exitFinishedProduct, FinishedProduct, getAllFinishedProducts } from '@/lib/airtable-fifo';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -28,6 +29,9 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@workspace/ui/com
 import { cn } from '@workspace/ui/lib/utils';
 
 export default function ExitProduct() {
+  const { user } = useUser();
+  const currentUser = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
+
   const [products, setProducts] = useState<FinishedProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<FinishedProduct | null>(null);
   const [quantity, setQuantity] = useState('');
@@ -61,7 +65,7 @@ export default function ExitProduct() {
       return;
     }
     setLoading(true);
-    const result = await exitFinishedProduct(selectedProduct.id, qty, 'Warehouse User', notes || undefined);
+    const result = await exitFinishedProduct(selectedProduct.id, qty, currentUser, notes || undefined);
     if (result.success) {
       setMessage(`Removed ${qty} unit(s) of ${selectedProduct.fields['Product Name']} from stock.`);
       setIsError(false);

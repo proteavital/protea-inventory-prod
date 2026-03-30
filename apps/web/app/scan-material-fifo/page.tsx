@@ -10,9 +10,11 @@ import {
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
 
 import BarcodeScanner from '@/components/BarcodeScanner';
-import { createMaterialBatch, findMaterialByBarcode, RawMaterial } from '@/lib/airtable-fifo';
+import { MaterialSearchInput } from '@/components/MaterialSearchInput';
+import { addRawMaterialStock, findMaterialByBarcode, RawMaterial } from '@/lib/airtable';
 import { AppSidebar } from '@/components/app-sidebar';
 import { Button } from '@workspace/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card';
@@ -23,17 +25,23 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@workspace/ui/com
 import { cn } from '@workspace/ui/lib/utils';
 
 export default function ScanMaterialFIFO() {
+  const { user } = useUser();
+  const currentUser = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
+
   const [scannedMaterial, setScannedMaterial] = useState<RawMaterial | null>(null);
   const [quantity, setQuantity] = useState<string>('');
-  const [unitCost, setUnitCost] = useState<string>('');
-  const [supplier, setSupplier] = useState<string>('');
-  const [lotNumber, setLotNumber] = useState<string>('');
-  const [expiryDate, setExpiryDate] = useState<string>('');
-  const [manualBarcode, setManualBarcode] = useState('');
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [loading, setLoading] = useState(false);
   const [useScanner, setUseScanner] = useState(true);
+
+  // --- PRICE / BATCH FIELDS (disabled) ---
+  // Uncomment to re-enable cost & batch tracking:
+  // const [unitCost, setUnitCost] = useState<string>('');
+  // const [supplier, setSupplier] = useState<string>('');
+  // const [lotNumber, setLotNumber] = useState<string>('');
+  // const [expiryDate, setExpiryDate] = useState<string>('');
+  // ----------------------------------------
 
   const handleScan = async (barcode: string) => {
     setLoading(true);
@@ -43,12 +51,10 @@ export default function ScanMaterialFIFO() {
 
     if (material) {
       setScannedMaterial(material);
-      if (material.fields['Unit Cost AVG']) {
-        setUnitCost(material.fields['Unit Cost AVG'].toString());
-      }
-      if (material.fields['Supplier']) {
-        setSupplier(material.fields['Supplier']);
-      }
+      // --- PRICE PREFILL (disabled) ---
+      // if (material.fields['Unit Cost AVG']) setUnitCost(material.fields['Unit Cost AVG'].toString());
+      // if (material.fields['Supplier']) setSupplier(material.fields['Supplier']);
+      // --------------------------------
       setMessage(`Found: ${material.fields['Material Name']}`);
       setMessageType('success');
     } else {
@@ -59,55 +65,67 @@ export default function ScanMaterialFIFO() {
     setLoading(false);
   };
 
-  const handleManualSubmit = () => {
-    if (manualBarcode.trim()) {
-      handleScan(manualBarcode.trim());
-    }
+  const handleMaterialSelect = (material: RawMaterial) => {
+    setScannedMaterial(material);
+    // --- PRICE PREFILL (disabled) ---
+    // if (material.fields['Unit Cost AVG']) setUnitCost(material.fields['Unit Cost AVG'].toString());
+    // if (material.fields['Supplier']) setSupplier(material.fields['Supplier']);
+    // --------------------------------
+    setMessage(`Found: ${material.fields['Material Name']}`);
+    setMessageType('success');
   };
 
-  const handleCreateBatch = async () => {
+  const handleReceive = async () => {
     if (!scannedMaterial) return;
 
     const qty = parseFloat(quantity);
-    const cost = parseFloat(unitCost);
-
     if (isNaN(qty) || qty <= 0) {
       setMessage('Please enter a valid quantity');
       setMessageType('error');
       return;
     }
 
-    if (isNaN(cost) || cost <= 0) {
-      setMessage('Please enter a valid unit cost');
-      setMessageType('error');
-      return;
-    }
+    // --- COST VALIDATION (disabled) ---
+    // const cost = parseFloat(unitCost);
+    // if (isNaN(cost) || cost <= 0) {
+    //   setMessage('Please enter a valid unit cost');
+    //   setMessageType('error');
+    //   return;
+    // }
+    // -----------------------------------
 
     setLoading(true);
 
-    const result = await createMaterialBatch(
-      scannedMaterial.id,
-      qty,
-      cost,
-      supplier || undefined,
-      lotNumber || undefined,
-      expiryDate || undefined
-    );
+    const result = await addRawMaterialStock(scannedMaterial.id, qty, currentUser);
+
+    // --- BATCH CREATION (disabled) ---
+    // const result = await createMaterialBatch(
+    //   scannedMaterial.id, qty, cost,
+    //   supplier || undefined,
+    //   lotNumber || undefined,
+    //   expiryDate || undefined,
+    // );
+    // ----------------------------------
 
     if (result.success) {
       setMessage(
-        `Batch created: ${qty} ${scannedMaterial.fields['Unit']} of ${scannedMaterial.fields['Material Name']} @ €${cost}/unit — Total: €${(qty * cost).toFixed(2)}${result.batchId ? ` (Batch ${result.batchId})` : ''}`
+        `Added ${qty} ${scannedMaterial.fields['Unit']} of ${scannedMaterial.fields['Material Name']} to stock.`
+        // --- BATCH SUMMARY MESSAGE (disabled) ---
+        // `Batch created: ${qty} ${scannedMaterial.fields['Unit']} of ${scannedMaterial.fields['Material Name']}
+        //  @ €${cost}/unit — Total: €${(qty * cost).toFixed(2)}`
+        // ----------------------------------------
       );
       setMessageType('success');
       setScannedMaterial(null);
       setQuantity('');
-      setUnitCost('');
-      setSupplier('');
-      setLotNumber('');
-      setExpiryDate('');
-      setManualBarcode('');
+      // --- PRICE FIELD RESETS (disabled) ---
+      // setUnitCost('');
+      // setSupplier('');
+      // setLotNumber('');
+      // setExpiryDate('');
+      // -------------------------------------
     } else {
-      setMessage(result.error || 'Failed to create batch');
+      setMessage(result.error || 'Failed to add stock');
       setMessageType('error');
     }
 
@@ -142,7 +160,7 @@ export default function ScanMaterialFIFO() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Receive Raw Material</CardTitle>
-                    <CardDescription>FIFO Batch Tracking</CardDescription>
+                    <CardDescription>Add stock via barcode scan or manual search</CardDescription>
                   </div>
                   <Button variant="ghost" size="sm" asChild>
                     <Link href="/">
@@ -202,29 +220,10 @@ export default function ScanMaterialFIFO() {
                     }}
                   />
                 ) : (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="barcode">Enter Barcode</Label>
-                      <Input
-                        id="barcode"
-                        value={manualBarcode}
-                        onChange={(e) => setManualBarcode(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleManualSubmit()}
-                        placeholder="Type or scan barcode here"
-                        autoFocus
-                      />
-                    </div>
-                    <Button
-                      onClick={handleManualSubmit}
-                      disabled={!manualBarcode.trim() || loading}
-                      className="w-full"
-                    >
-                      Search Material
-                    </Button>
-                  </div>
+                  <MaterialSearchInput onSelect={handleMaterialSelect} disabled={loading} />
                 )}
 
-                {/* Material details + batch form */}
+                {/* Material details + entry form */}
                 {scannedMaterial && (
                   <>
                     <Separator />
@@ -243,74 +242,62 @@ export default function ScanMaterialFIFO() {
                             {scannedMaterial.fields['Unit']}
                           </span>
 
+                          {/* --- AVG COST (disabled) ---
                           <span className="text-muted-foreground">Avg Cost</span>
                           <span className="font-medium">
                             €{(scannedMaterial.fields['Unit Cost AVG'] || 0).toFixed(2)}/
                             {scannedMaterial.fields['Unit']}
                           </span>
+                          ---------------------------- */}
                         </div>
                       </div>
 
                       <Separator />
-                      <p className="text-sm font-semibold">New Batch Details</p>
 
+                      {/* Quantity — only required field */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="qty">Quantity ({scannedMaterial.fields['Unit']}) *</Label>
+                        <Input
+                          id="qty"
+                          type="number"
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                          min="0"
+                          step="0.01"
+                          placeholder="0"
+                          autoFocus
+                        />
+                      </div>
+
+                      {/* --- PRICE FIELDS (disabled) ---
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                          <Label htmlFor="qty">Quantity *</Label>
-                          <Input
-                            id="qty"
-                            type="number"
-                            value={quantity}
-                            onChange={(e) => setQuantity(e.target.value)}
-                            min="0"
-                            step="0.01"
-                            placeholder="100"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
                           <Label htmlFor="cost">Unit Cost (€) *</Label>
-                          <Input
-                            id="cost"
-                            type="number"
-                            value={unitCost}
+                          <Input id="cost" type="number" value={unitCost}
                             onChange={(e) => setUnitCost(e.target.value)}
-                            min="0"
-                            step="0.01"
-                            placeholder="15.50"
-                          />
+                            min="0" step="0.01" placeholder="15.50" />
                         </div>
                       </div>
-
                       <div className="space-y-1.5">
                         <Label htmlFor="supplier">Supplier</Label>
-                        <Input
-                          id="supplier"
-                          value={supplier}
+                        <Input id="supplier" value={supplier}
                           onChange={(e) => setSupplier(e.target.value)}
-                          placeholder="Metal Supplies Co"
-                        />
+                          placeholder="Metal Supplies Co" />
                       </div>
-
                       <div className="space-y-1.5">
-                        <Label htmlFor="lot">Lot/Batch Number</Label>
-                        <Input
-                          id="lot"
-                          value={lotNumber}
+                        <Label htmlFor="lot">Lot / Batch Number</Label>
+                        <Input id="lot" value={lotNumber}
                           onChange={(e) => setLotNumber(e.target.value)}
-                          placeholder="LOT-2024-001"
-                        />
+                          placeholder="LOT-2024-001" />
                       </div>
-
                       <div className="space-y-1.5">
                         <Label htmlFor="expiry">Expiry Date (Optional)</Label>
-                        <Input
-                          id="expiry"
-                          type="date"
-                          value={expiryDate}
-                          onChange={(e) => setExpiryDate(e.target.value)}
-                        />
+                        <Input id="expiry" type="date" value={expiryDate}
+                          onChange={(e) => setExpiryDate(e.target.value)} />
                       </div>
+                      -------------------------------- */}
 
+                      {/* --- BATCH COST SUMMARY (disabled) ---
                       {quantity && unitCost && (
                         <div className="rounded-lg bg-muted px-4 py-3 text-sm">
                           <p className="mb-0.5 font-semibold">Batch Summary</p>
@@ -322,14 +309,15 @@ export default function ScanMaterialFIFO() {
                           </p>
                         </div>
                       )}
+                      --------------------------------------- */}
 
                       <Button
-                        onClick={handleCreateBatch}
-                        disabled={loading || !quantity || !unitCost}
+                        onClick={handleReceive}
+                        disabled={loading || !quantity}
                         size="lg"
                         className="w-full"
                       >
-                        {loading ? 'Creating Batch...' : 'Receive Material (Create Batch)'}
+                        {loading ? 'Adding...' : 'Add to Stock'}
                       </Button>
                     </div>
                   </>

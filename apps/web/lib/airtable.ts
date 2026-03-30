@@ -230,6 +230,21 @@ export async function produceFinishedProduct(
   }
 }
 
+export async function getFinishedProductTransactions(): Promise<any[]> {
+  try {
+    const records = await tables.transactions
+      .select({
+        filterByFormula: `{Type} = 'Finished Product IN'`,
+        sort: [{ field: 'Date', direction: 'asc' }],
+      })
+      .all();
+    return records as any[];
+  } catch (error) {
+    console.error('Error fetching finished product transactions:', error);
+    return [];
+  }
+}
+
 export async function getRecentTransactions(limit: number = 50): Promise<any[]> {
   try {
     const records = await tables.transactions

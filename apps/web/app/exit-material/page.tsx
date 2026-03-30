@@ -11,9 +11,11 @@ import {
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
 
 import BarcodeScanner from '@/components/BarcodeScanner';
-import { deductFromBatchesFIFO, findMaterialByBarcode, RawMaterial } from '@/lib/airtable-fifo';
+import { MaterialSearchInput } from '@/components/MaterialSearchInput';
+import { findMaterialByBarcode, removeRawMaterialStock, RawMaterial } from '@/lib/airtable';
 import { AppSidebar } from '@/components/app-sidebar';
 import { Button } from '@workspace/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card';
@@ -24,10 +26,12 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@workspace/ui/com
 import { cn } from '@workspace/ui/lib/utils';
 
 export default function ExitMaterial() {
+  const { user } = useUser();
+  const currentUser = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
+
   const [scannedMaterial, setScannedMaterial] = useState<RawMaterial | null>(null);
   const [quantity, setQuantity] = useState('');
   const [notes, setNotes] = useState('');
-  const [manualBarcode, setManualBarcode] = useState('');
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('error');
   const [loading, setLoading] = useState(false);
@@ -52,8 +56,10 @@ export default function ExitMaterial() {
     setLoading(false);
   };
 
-  const handleManualSubmit = () => {
-    if (manualBarcode.trim()) handleScan(manualBarcode.trim());
+  const handleMaterialSelect = (material: RawMaterial) => {
+    setScannedMaterial(material);
+    setMessage(`Found: ${material.fields['Material Name']}`);
+    setMessageType('success');
   };
 
   const handleExit = async () => {
@@ -75,13 +81,19 @@ export default function ExitMaterial() {
 
     setLoading(true);
 
-    const result = await deductFromBatchesFIFO(
+    const result = await removeRawMaterialStock(
       scannedMaterial.id,
       qty,
-      'Warehouse User',
-      notes || 'Manual exit',
-      'Raw Material OUT'
+      currentUser,
+      notes || undefined
     );
+
+    // --- FIFO DEDUCTION (disabled) ---
+    // const result = await deductFromBatchesFIFO(
+    //   scannedMaterial.id, qty, 'Warehouse User',
+    //   notes || 'Manual exit', 'Raw Material OUT'
+    // );
+    // ----------------------------------
 
     if (result.success) {
       setMessage(
@@ -91,7 +103,6 @@ export default function ExitMaterial() {
       setScannedMaterial(null);
       setQuantity('');
       setNotes('');
-      setManualBarcode('');
     } else {
       setMessage(result.error || 'Failed to exit material.');
       setMessageType('error');
@@ -126,7 +137,7 @@ export default function ExitMaterial() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Exit Raw Material</CardTitle>
-                    <CardDescription>Remove raw material from stock (waste, disposal, correction)</CardDescription>
+                    <CardDescription>Remove raw material from stock</CardDescription>
                   </div>
                   <Button variant="ghost" size="sm" asChild>
                     <Link href="/">
@@ -181,26 +192,7 @@ export default function ExitMaterial() {
                     onError={(error) => { setMessage(error); setMessageType('error'); }}
                   />
                 ) : (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="barcode">Enter Barcode</Label>
-                      <Input
-                        id="barcode"
-                        value={manualBarcode}
-                        onChange={(e) => setManualBarcode(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleManualSubmit()}
-                        placeholder="Type or scan barcode here"
-                        autoFocus
-                      />
-                    </div>
-                    <Button
-                      onClick={handleManualSubmit}
-                      disabled={!manualBarcode.trim() || loading}
-                      className="w-full"
-                    >
-                      Search Material
-                    </Button>
-                  </div>
+                  <MaterialSearchInput onSelect={handleMaterialSelect} disabled={loading} />
                 )}
 
                 {scannedMaterial && (
@@ -212,23 +204,27 @@ export default function ExitMaterial() {
                         <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                           <span className="text-muted-foreground">Material ID</span>
                           <span className="font-medium">{scannedMaterial.fields['Material ID']}</span>
+
                           <span className="text-muted-foreground">Current Stock</span>
                           <span className="font-medium">
                             {scannedMaterial.fields['Current Stock'] || 0} {scannedMaterial.fields['Unit']}
                           </span>
+
+                          {/* --- AVG COST (disabled) ---
                           <span className="text-muted-foreground">Avg Cost</span>
                           <span className="font-medium">
-                            €{(scannedMaterial.fields['Unit Cost AVG'] || 0).toFixed(2)} /{' '}
-                            {scannedMaterial.fields['Unit']}
+                            €{(scannedMaterial.fields['Unit Cost AVG'] || 0).toFixed(2)} / {scannedMaterial.fields['Unit']}
                           </span>
+                          ---------------------------- */}
                         </div>
                       </div>
 
                       <Separator />
 
+                      {/* Quantity — only required field */}
                       <div className="space-y-1.5">
                         <Label htmlFor="quantity">
-                          Quantity to Remove ({scannedMaterial.fields['Unit']})
+                          Quantity to Remove ({scannedMaterial.fields['Unit']}) *
                         </Label>
                         <Input
                           id="quantity"
@@ -242,8 +238,9 @@ export default function ExitMaterial() {
                         />
                       </div>
 
+                      {/* Notes — optional, not price-related */}
                       <div className="space-y-1.5">
-                        <Label htmlFor="notes">Reason / Notes</Label>
+                        <Label htmlFor="notes">Reason / Notes (optional)</Label>
                         <Input
                           id="notes"
                           type="text"

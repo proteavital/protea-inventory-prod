@@ -9,6 +9,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
 
 import { enterFinishedProduct, FinishedProduct, getAllFinishedProducts } from '@/lib/airtable-fifo';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -28,6 +29,9 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@workspace/ui/com
 import { cn } from '@workspace/ui/lib/utils';
 
 export default function EnterProduct() {
+  const { user } = useUser();
+  const currentUser = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
+
   const [products, setProducts] = useState<FinishedProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<FinishedProduct | null>(null);
   const [quantity, setQuantity] = useState('');
@@ -62,7 +66,7 @@ export default function EnterProduct() {
     }
     const cost = unitCost ? parseFloat(unitCost) : undefined;
     setLoading(true);
-    const result = await enterFinishedProduct(selectedProduct.id, qty, 'Warehouse User', cost, notes || undefined);
+    const result = await enterFinishedProduct(selectedProduct.id, qty, currentUser, cost, notes || undefined);
     if (result.success) {
       setMessage(`Added ${qty} unit(s) of ${selectedProduct.fields['Product Name']} to stock.`);
       setIsError(false);

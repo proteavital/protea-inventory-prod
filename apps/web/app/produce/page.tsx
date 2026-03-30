@@ -10,6 +10,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
 
 import {
   FinishedProduct,
@@ -37,6 +38,9 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@workspace/ui/com
 import { cn } from '@workspace/ui/lib/utils';
 
 export default function Produce() {
+  const { user } = useUser();
+  const currentUser = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
+
   const [products, setProducts] = useState<FinishedProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<FinishedProduct | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -107,7 +111,7 @@ export default function Produce() {
       return;
     }
     setLoading(true);
-    const result = await produceFinishedProductFIFO(selectedProduct.id, qty, 'Warehouse User', recipes);
+    const result = await produceFinishedProductFIFO(selectedProduct.id, qty, currentUser, recipes);
     if (result.success) {
       setMessage(`Produced ${qty} units of ${selectedProduct.fields['Product Name']}`);
       setMessageType('success');

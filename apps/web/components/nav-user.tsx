@@ -1,5 +1,6 @@
 "use client"
 
+import { useClerk } from "@clerk/nextjs"
 import {
   Avatar,
   AvatarFallback,
@@ -8,7 +9,6 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -21,7 +21,7 @@ import {
   useSidebar,
 } from "@workspace/ui/components/sidebar"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreVerticalCircle01Icon, UserCircle02Icon, CreditCardIcon, Notification03Icon, Logout01Icon } from "@hugeicons/core-free-icons"
+import { MoreVerticalCircle01Icon, Logout01Icon } from "@hugeicons/core-free-icons"
 
 export function NavUser({
   user,
@@ -33,6 +33,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const { signOut } = useClerk()
 
   return (
     <SidebarMenu>
@@ -77,22 +78,7 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <HugeiconsIcon icon={UserCircle02Icon} strokeWidth={2} />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <HugeiconsIcon icon={CreditCardIcon} strokeWidth={2} />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <HugeiconsIcon icon={Notification03Icon} strokeWidth={2} />
-                Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => signOut()}>
               <HugeiconsIcon icon={Logout01Icon} strokeWidth={2} />
               Log out
             </DropdownMenuItem>

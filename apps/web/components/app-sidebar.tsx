@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useUser } from "@clerk/nextjs"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -25,13 +26,7 @@ import {
   MinusSignIcon,
 } from "@hugeicons/core-free-icons"
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
+const navMain = [
     {
       title: "Stocuri",
       url: "/",
@@ -67,10 +62,17 @@ const data = {
       url: "/history",
       icon: <HugeiconsIcon icon={Analytics01Icon} strokeWidth={2} />,
     },
-  ],
-}
+]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user } = useUser()
+
+  const userData = {
+    name: user?.fullName ?? user?.firstName ?? "User",
+    email: user?.primaryEmailAddress?.emailAddress ?? "",
+    avatar: user?.imageUrl ?? "",
+  }
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -89,10 +91,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={navMain} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={userData} />
       </SidebarFooter>
     </Sidebar>
   )

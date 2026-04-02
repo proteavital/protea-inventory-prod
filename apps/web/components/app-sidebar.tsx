@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import { useUser } from "@clerk/nextjs"
 
 import { NavMain } from "@/components/nav-main"
@@ -18,7 +19,6 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Analytics01Icon,
   BarcodeScanIcon,
-  CommandIcon,
   Database01Icon,
   Factory01Icon,
   PackageAddIcon,
@@ -83,8 +83,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <a href="#">
-                <HugeiconsIcon icon={CommandIcon} strokeWidth={2} className="size-5!" />
-                <span className="text-base font-semibold">Acme Inc.</span>
+                <Image
+                  src="/Protea-Vital_Logo2.png"
+                  alt="Protea Vital"
+                  width={24}
+                  height={24}
+                  className="size-6 object-contain"
+                />
+                <span className="text-base font-semibold">Protea Vital</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>

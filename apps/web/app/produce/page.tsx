@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react';
 import {
   Alert01Icon,
   ArrowLeft01Icon,
+  BarcodeScanIcon,
   CancelCircleIcon,
   CheckmarkCircle01Icon,
   Factory01Icon,
+  KeyboardIcon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import Link from 'next/link';
@@ -14,26 +16,21 @@ import { useUser } from '@clerk/nextjs';
 
 import {
   FinishedProduct,
-  getAllFinishedProducts,
+  findProductByBarcode,
   getAllRawMaterials,
   getRecipesForProduct,
   produceFinishedProductFIFO,
   RawMaterial,
   Recipe,
 } from '@/lib/airtable-fifo';
+import BarcodeScanner from '@/components/BarcodeScanner';
+import { ProductSearchInput } from '@/components/ProductSearchInput';
 import { AppSidebar } from '@/components/app-sidebar';
 import { Button } from '@workspace/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Separator } from '@workspace/ui/components/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@workspace/ui/components/sidebar';
 import { cn } from '@workspace/ui/lib/utils';
 
@@ -41,7 +38,6 @@ export default function Produce() {
   const { user } = useUser();
   const currentUser = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
 
-  const [products, setProducts] = useState<FinishedProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<FinishedProduct | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
@@ -49,25 +45,18 @@ export default function Produce() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | 'warning'>('success');
   const [loading, setLoading] = useState(false);
+  const [useScanner, setUseScanner] = useState(true);
 
   useEffect(() => {
-    loadProducts();
     loadRawMaterials();
   }, []);
-
-  const loadProducts = async () => {
-    const data = await getAllFinishedProducts();
-    setProducts(data);
-  };
 
   const loadRawMaterials = async () => {
     const data = await getAllRawMaterials();
     setRawMaterials(data);
   };
 
-  const handleProductSelect = async (productId: string) => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) return;
+  const handleProductFound = async (product: FinishedProduct) => {
     setSelectedProduct(product);
     setMessage('');
     const recipeData = await getRecipesForProduct(product.id);
@@ -76,6 +65,19 @@ export default function Produce() {
       setMessage('No recipe configured for this product. Please contact admin.');
       setMessageType('warning');
     }
+  };
+
+  const handleScan = async (barcode: string) => {
+    setLoading(true);
+    setMessage('');
+    const product = await findProductByBarcode(barcode);
+    if (product) {
+      await handleProductFound(product);
+    } else {
+      setMessage(`Product with barcode "${barcode}" not found`);
+      setMessageType('error');
+    }
+    setLoading(false);
   };
 
   const canProduce = (qty: number): { canProduce: boolean; missing: string[] } => {
@@ -118,6 +120,7 @@ export default function Produce() {
       setQuantity('1');
       setSelectedProduct(null);
       setRecipes([]);
+      setUseScanner(true);
       await loadRawMaterials();
     } else {
       setMessage(result.error || 'Failed to produce product');
@@ -190,21 +193,52 @@ export default function Produce() {
                   </div>
                 )}
 
-                <div className="space-y-1.5">
-                  <Label>Select Product</Label>
-                  <Select value={selectedProduct?.id || ''} onValueChange={handleProductSelect}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a product..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.fields['Product Name']} ({product.fields['Product ID']})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex gap-2">
+                  <Button
+                    variant={useScanner ? 'default' : 'outline'}
+                    onClick={() => setUseScanner(true)}
+                    className="flex-1"
+                  >
+                    <HugeiconsIcon icon={BarcodeScanIcon} size={16} />
+                    Scan Barcode
+                  </Button>
+                  <Button
+                    variant={!useScanner ? 'default' : 'outline'}
+                    onClick={() => setUseScanner(false)}
+                    className="flex-1"
+                  >
+                    <HugeiconsIcon icon={KeyboardIcon} size={16} />
+                    Manual Entry
+                  </Button>
                 </div>
+
+                {useScanner ? (
+                  <BarcodeScanner
+                    onScan={handleScan}
+                    onError={(error) => {
+                      setMessage(error);
+                      setMessageType('error');
+                    }}
+                  />
+                ) : (
+                  <ProductSearchInput onSelect={handleProductFound} disabled={loading} />
+                )}
+
+                {selectedProduct && (
+                  <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Selected product</p>
+                      <p className="font-semibold">{selectedProduct.fields['Product Name']}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedProduct(null); setRecipes([]); setMessage(''); }}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Change
+                    </button>
+                  </div>
+                )}
 
                 {selectedProduct && recipes.length > 0 && (
                   <>

@@ -3,28 +3,25 @@
 import { useState, useEffect } from 'react';
 import {
   ArrowLeft01Icon,
+  BarcodeScanIcon,
   CancelCircleIcon,
   CheckmarkCircle01Icon,
+  KeyboardIcon,
   PackageRemoveIcon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 
-import { exitFinishedProduct, FinishedProduct, getAllFinishedProducts } from '@/lib/airtable-fifo';
+import { exitFinishedProduct, findProductByBarcode, FinishedProduct } from '@/lib/airtable-fifo';
+import BarcodeScanner from '@/components/BarcodeScanner';
+import { ProductSearchInput } from '@/components/ProductSearchInput';
 import { AppSidebar } from '@/components/app-sidebar';
 import { Button } from '@workspace/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Separator } from '@workspace/ui/components/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@workspace/ui/components/sidebar';
 import { cn } from '@workspace/ui/lib/utils';
 
@@ -32,22 +29,30 @@ export default function ExitProduct() {
   const { user } = useUser();
   const currentUser = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
 
-  const [products, setProducts] = useState<FinishedProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<FinishedProduct | null>(null);
   const [quantity, setQuantity] = useState('');
   const [notes, setNotes] = useState('');
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [useScanner, setUseScanner] = useState(true);
 
-  useEffect(() => {
-    getAllFinishedProducts().then(setProducts);
-  }, []);
-
-  const handleProductSelect = (id: string) => {
-    const product = products.find((p) => p.id === id) || null;
+  const handleProductFound = (product: FinishedProduct) => {
     setSelectedProduct(product);
     setMessage('');
+  };
+
+  const handleScan = async (barcode: string) => {
+    setLoading(true);
+    setMessage('');
+    const product = await findProductByBarcode(barcode);
+    if (product) {
+      handleProductFound(product);
+    } else {
+      setMessage(`Product with barcode "${barcode}" not found`);
+      setIsError(true);
+    }
+    setLoading(false);
   };
 
   const handleSubmit = async () => {
@@ -72,7 +77,7 @@ export default function ExitProduct() {
       setQuantity('');
       setNotes('');
       setSelectedProduct(null);
-      getAllFinishedProducts().then(setProducts);
+      setUseScanner(true);
     } else {
       setMessage(result.error || 'Failed to exit product.');
       setIsError(true);
@@ -136,26 +141,53 @@ export default function ExitProduct() {
                   </div>
                 )}
 
-                <div className="space-y-1.5">
-                  <Label>Finished Product</Label>
-                  <Select value={selectedProduct?.id || ''} onValueChange={handleProductSelect}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a product..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.fields['Product Name']} — {p.fields['Current Stock'] ?? 0} units
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex gap-2">
+                  <Button
+                    variant={useScanner ? 'default' : 'outline'}
+                    onClick={() => setUseScanner(true)}
+                    className="flex-1"
+                  >
+                    <HugeiconsIcon icon={BarcodeScanIcon} size={16} />
+                    Scan Barcode
+                  </Button>
+                  <Button
+                    variant={!useScanner ? 'default' : 'outline'}
+                    onClick={() => setUseScanner(false)}
+                    className="flex-1"
+                  >
+                    <HugeiconsIcon icon={KeyboardIcon} size={16} />
+                    Manual Entry
+                  </Button>
                 </div>
 
+                {useScanner ? (
+                  <BarcodeScanner
+                    onScan={handleScan}
+                    onError={(error) => {
+                      setMessage(error);
+                      setIsError(true);
+                    }}
+                  />
+                ) : (
+                  <ProductSearchInput onSelect={handleProductFound} disabled={loading} />
+                )}
+
                 {selectedProduct && (
-                  <div className="rounded-lg bg-muted px-4 py-3 text-sm">
-                    <span className="text-muted-foreground">Current stock: </span>
-                    <span className="font-semibold">{selectedProduct.fields['Current Stock'] ?? 0} units</span>
+                  <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Selected product</p>
+                      <p className="font-semibold">{selectedProduct.fields['Product Name']}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Current stock: {selectedProduct.fields['Current Stock'] ?? 0} units
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedProduct(null); setMessage(''); }}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Change
+                    </button>
                   </div>
                 )}
 

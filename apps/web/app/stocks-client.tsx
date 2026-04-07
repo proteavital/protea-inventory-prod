@@ -110,14 +110,14 @@ export default function StocksClient() {
 
   const filteredMaterials = rawMaterials.filter(
     (m) =>
-      m.fields['Material Name'].toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(m.fields['Material ID']).toLowerCase().includes(searchTerm.toLowerCase())
+      (m.fields['Material Name'] ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(m.fields['Material ID'] ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredProducts = finishedProducts.filter(
     (p) =>
-      p.fields['Product Name'].toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(p.fields['Product ID']).toLowerCase().includes(searchTerm.toLowerCase())
+      (p.fields['Product Name'] ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(p.fields['Product ID'] ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

@@ -14,15 +14,26 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 
+// --- FIFO imports (kept for reference, not active) ---
+// import {
+//   FinishedProduct,
+//   findProductByBarcode,
+//   getAllRawMaterials,
+//   getRecipesForProduct,
+//   produceFinishedProductFIFO,
+//   RawMaterial,
+//   Recipe,
+// } from '@/lib/airtable-fifo';
+
 import {
   FinishedProduct,
   findProductByBarcode,
   getAllRawMaterials,
   getRecipesForProduct,
-  produceFinishedProductFIFO,
+  produceFinishedProduct,
   RawMaterial,
   Recipe,
-} from '@/lib/airtable-fifo';
+} from '@/lib/airtable';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import { ProductSearchInput } from '@/components/ProductSearchInput';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -113,7 +124,9 @@ export default function Produce() {
       return;
     }
     setLoading(true);
-    const result = await produceFinishedProductFIFO(selectedProduct.id, qty, currentUser, recipes);
+    // --- FIFO production (kept for reference, not active) ---
+    // const result = await produceFinishedProductFIFO(selectedProduct.id, qty, currentUser, recipes);
+    const result = await produceFinishedProduct(selectedProduct.id, qty, currentUser, recipes, rawMaterials);
     if (result.success) {
       setMessage(`Produced ${qty} units of ${selectedProduct.fields['Product Name']}`);
       setMessageType('success');

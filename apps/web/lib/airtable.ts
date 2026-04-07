@@ -191,6 +191,15 @@ export async function removeRawMaterialStock(
   return createTransaction(transaction);
 }
 
+// Airtable allows max 10 records per create() call — chunk helper
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
 export async function produceFinishedProduct(
   productRecordId: string,
   quantity: number,
@@ -222,7 +231,13 @@ export async function produceFinishedProduct(
       },
     };
 
-    await tables.transactions.create([...materialTransactions, productTransaction]);
+    const allTransactions = [...materialTransactions, productTransaction];
+
+    // Send in chunks of 10 (Airtable API limit)
+    for (const chunk of chunkArray(allTransactions, 10)) {
+      await tables.transactions.create(chunk);
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Error producing product:', error);

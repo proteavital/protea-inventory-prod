@@ -66,7 +66,7 @@ export function MaterialSearchInput({ onSelect, disabled }: MaterialSearchInputP
     }
     const q = query.toLowerCase();
     const results = materials.filter((m) => {
-      const nameMatch = m.fields['Material Name'].toLowerCase().includes(q);
+      const nameMatch = (m.fields['Material Name'] ?? '').toLowerCase().includes(q);
       const barcode = toDisplayString(m.fields['Barcode']);
       const barcodeMatch = barcode ? barcode.toLowerCase().includes(q) : false;
       return nameMatch || barcodeMatch;

@@ -64,7 +64,7 @@ export function ProductSearchInput({ onSelect, disabled }: ProductSearchInputPro
     }
     const q = query.toLowerCase();
     const results = products.filter((p) => {
-      const nameMatch = p.fields['Product Name'].toLowerCase().includes(q);
+      const nameMatch = (p.fields['Product Name'] ?? '').toLowerCase().includes(q);
       const productId = toDisplayString(p.fields['Product ID']);
       const idMatch = productId ? productId.toLowerCase().includes(q) : false;
       const barcode = toDisplayString(p.fields['Barcode']);
